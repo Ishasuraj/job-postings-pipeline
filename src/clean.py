@@ -5,7 +5,21 @@ Cleaning fixes the data; validation checks it.
 Kept as separate functions so validation can be unit tested in isolation.
 """
 
+import re
+
 import pandas as pd
+
+
+def _has_valid_salary(value) -> bool:
+    """Return True if the value looks like a salary string, else False."""
+    if value is None:
+        return True
+
+    text = str(value).strip()
+    if not text:
+        return True
+
+    return bool(re.search(r"\d", text))
 
 
 def clean_data(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
@@ -71,6 +85,10 @@ def validate_row(row: dict) -> bool:
 
     fraudulent = row.get("fraudulent", 0)
     if fraudulent not in (0, 1):
+        return False
+
+    salary = row.get("salary_range")
+    if not _has_valid_salary(salary):
         return False
 
     return True
