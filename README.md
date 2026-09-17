@@ -1,143 +1,85 @@
 # Job Postings Fraud Analytics Pipeline
 
-A Python pipeline for analyzing fake or suspicious job postings using data cleaning, validation, SQLite analysis, and visualization.
-
-## Overview
-This project uses a realistic job-posting dataset to detect patterns associated with fraudulent employment listings. The pipeline loads raw CSV data, validates and cleans records, stores the results in SQLite, runs SQL analysis, and produces a simple fraud-rate visualization.
-
-## Why this project
-Fake job listings are often difficult to distinguish from legitimate postings without a structured review process. This project builds a repeatable workflow to:
-
-- inspect raw data quality
-- standardize and validate records
-- detect suspicious patterns in job metadata
-- analyze fraud rates by job type and category
-- visualize key findings for quick review
+A Python data pipeline that ingests, cleans, validates, and analyzes job posting data to surface patterns associated with fraudulent listings — built to strengthen hands-on SQL, data validation, and testing skills.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    A[Raw CSV Data] --> B[Ingestion\nPandas]
-    B --> C[Cleaning + Validation]
-    C --> D[SQLite Database]
-    D --> E[SQL Analysis]
-    E --> F[Visualization]
+```
+Raw CSV → Python (clean + validate) → SQLite → SQL Analysis → Visualization
 ```
 
-## Data Quality Snapshot
-The cleaned dataset currently contains:
+## What It Does
 
-- Raw rows: 17,880
-- Duplicates removed: 0
-- Rows failed validation: 346
-- Final clean rows: 17,534
+1. **Ingests** ~17,880 job postings from the [Kaggle Fake Job Postings dataset](https://www.kaggle.com/datasets/shivamb/real-or-fake-fake-jobposting-prediction)
+2. **Cleans and validates** each record — normalizing text fields, checking for required data, and flagging malformed entries (e.g. non-numeric salary ranges)
+3. **Loads** the validated data into a local SQLite database
+4. **Analyzes** it with SQL — including aggregations, correlations, and a window-function ranking
+5. **Visualizes** key findings as a chart
+6. **Tests** the validation logic with pytest
 
 ## Key Findings
-The analysis shows that fraud risk is not evenly distributed across job attributes.
 
-- Part-time postings had the highest fraud rate at 9.45%
-- Full-time postings were lower at 4.21%
-- Roles with missing or weak company indicators showed greater fraud risk
-- Company logo presence was associated with materially lower fraud rates
-
-## Visualization
+- Overall fraud rate across the dataset: **4.83%**
+- Postings with **no company logo** have a fraud rate of **15.76%** — nearly 8x higher than postings with a logo (2.00%)
+- **Oil & Energy** is the highest-risk industry by fraud rate at **37.54%**
+- **Part-time** roles have the highest fraud rate among employment types (**9.45%**)
+- **Remote/telecommuting** postings show a higher fraud rate (**8.45%**) than on-site postings (**4.67%**)
 
 ![Fraud rate by employment type](plots/fraud_by_employment_type.png)
 
-## Project Structure
+## Data Quality
 
-```text
-job-postings-pipeline/
-├── data/
-│   ├── fake_job_postings.csv
-│   ├── cleaned_jobs.csv
-│   └── job_postings.db
-├── plots/
-│   └── fraud_by_employment_type.png
-├── sql/
-│   ├── queries.sql
-│   └── results.md
-├── src/
-│   ├── ingest.py
-│   ├── clean.py
-│   ├── load_db.py
-│   ├── run_queries.py
-│   └── visualize.py
-├── tests/
-│   └── test_validation.py
-├── .gitignore
-├── data_quality_report.md
-├── README.md
-└── PROJECT_STATUS.md
-```
+- Raw rows ingested: 17,880
+- Duplicates removed: 0
+- Rows failed validation: 346 (missing location, invalid salary format, etc.)
+- Final clean rows loaded: **17,534**
+
+Full breakdown in [`data_quality_report.md`](data_quality_report.md).
 
 ## Tech Stack
 
-- Python
-- pandas
-- SQLite
-- SQL
-- matplotlib
-- pytest
-- Git and GitHub
+Python, pandas, SQLite, pytest, matplotlib, Git
 
-## How to Run Locally
+## SQL Highlights
 
-1. Create and activate a virtual environment.
-2. Install dependencies:
+7 queries in [`sql/queries.sql`](sql/queries.sql), including:
+- Fraud rate by employment type, industry, and required experience
+- Company logo and telecommuting correlation with fraud
+- A window-function query ranking industries by fraud rate (`RANK() OVER (...)`)
 
-```bash
-pip install pandas matplotlib pytest
+Full results in [`sql/results.md`](sql/results.md).
+
+## Testing
+
+5 unit tests covering the row-validation logic (valid input, missing fields, invalid flags, malformed salary format):
+
 ```
-
-3. Run the ingestion and cleaning scripts:
-
-```bash
-python src/ingest.py
-python src/clean.py
-```
-
-4. Load the cleaned data into SQLite:
-
-```bash
-python src/load_db.py
-```
-
-5. Run the SQL queries and save results:
-
-```bash
-python src/run_queries.py
-```
-
-6. Generate the chart:
-
-```bash
-python src/visualize.py
-```
-
-7. Run the validation tests:
-
-```bash
 pytest tests/test_validation.py
 ```
 
-## Validation Coverage
-The project includes pytest checks for:
+## Cloud Migration Note
 
-- valid rows passing validation
-- missing title rejection
-- missing location rejection
-- invalid `fraudulent` flag rejection
-- malformed salary formatting rejection
+Analysis was initially planned for Google Cloud BigQuery. GCP required a one-time prepayment for billing verification on this account (an India-specific requirement, separate from trial credits), so analysis was kept local in SQLite instead. The SQL used is standard and portable to BigQuery or AWS Athena with minimal changes.
+
+## How to Run
+
+```bash
+python -m venv venv
+venv\Scripts\activate        # Windows
+pip install -r requirements.txt
+
+# Download the dataset from Kaggle and place it at data/fake_job_postings.csv
+
+python src/ingest.py
+python src/clean.py
+python src/load_db.py
+python src/run_queries.py
+python src/visualize.py
+pytest tests/test_validation.py
+```
 
 ## Future Work
 
-- migrate the cleaned dataset to BigQuery
-- automate ingestion and ETL with Cloud Functions
-- schedule recurring data updates via Cloud Scheduler
-- add more advanced fraud-feature modeling and dashboarding
-
-## License
-This project is intended for learning, analysis, and portfolio demonstration purposes.
-
+- Migrate analysis to a cloud data warehouse (BigQuery / AWS Athena)
+- Expand unit test coverage to the cleaning pipeline itself
+- Add a CI workflow to run tests automatically on push
