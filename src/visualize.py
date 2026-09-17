@@ -1,20 +1,18 @@
 """
 visualize.py
-Create a simple chart summarizing fraud rate by employment type.
+Generates a bar chart showing fraud rate by employment type,
+pulled directly from the SQLite database, and saves it as a PNG
+for inclusion in the README.
 """
 
-import os
 import sqlite3
-
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 def get_fraud_by_employment_type(db_path: str) -> pd.DataFrame:
-    """Query the SQLite database for fraud rate by employment type."""
+    """Query fraud rate by employment type from the SQLite database."""
+    conn = sqlite3.connect(db_path)
     query = """
         SELECT
             employment_type,
@@ -24,36 +22,43 @@ def get_fraud_by_employment_type(db_path: str) -> pd.DataFrame:
         FROM job_postings
         WHERE employment_type != ''
         GROUP BY employment_type
-        ORDER BY fraud_rate_pct DESC
+        ORDER BY fraud_rate_pct DESC;
     """
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df
 
-    with sqlite3.connect(db_path) as conn:
-        return pd.read_sql_query(query, conn)
 
+def plot_fraud_rate(df: pd.DataFrame, output_path: str) -> None:
+    """Create and save a bar chart of fraud rate by employment type."""
+    plt.figure(figsize=(9, 5))
+    bars = plt.bar(df["employment_type"], df["fraud_rate_pct"], color="#c0392b")
 
-def save_chart(df: pd.DataFrame, output_path: str) -> None:
-    """Render a bar chart and save it to a PNG file."""
-    output_dir = os.path.dirname(output_path)
-    if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
-
-    plt.figure(figsize=(10, 6))
-    colors = ["#2E86C1", "#1ABC9C", "#F5B041", "#D35400", "#7D3C98"]
-
-    plt.bar(df["employment_type"], df["fraud_rate_pct"], color=colors[: len(df)])
-    plt.title("Fraud Rate by Employment Type")
+    plt.title("Fraud Rate by Employment Type", fontsize=14, fontweight="bold")
     plt.xlabel("Employment Type")
     plt.ylabel("Fraud Rate (%)")
-    plt.xticks(rotation=20, ha="right")
+    plt.xticks(rotation=20)
+
+    # Label each bar with its value
+    for bar, value in zip(bars, df["fraud_rate_pct"]):
+        plt.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.1,
+            f"{value}%",
+            ha="center",
+            fontsize=9,
+        )
+
     plt.tight_layout()
-    plt.savefig(output_path, dpi=200)
-    plt.close()
+    plt.savefig(output_path, dpi=150)
+    print(f"Saved chart to {output_path}")
 
 
 if __name__ == "__main__":
-    db_path = "data/job_postings.db"
-    output_path = "plots/fraud_by_employment_type.png"
+    DB_PATH = "data/job_postings.db"
+    OUTPUT_PATH = "plots/fraud_by_employment_type.png"
 
-    df = get_fraud_by_employment_type(db_path)
-    save_chart(df, output_path)
-    print(f"Saved chart to {output_path}")
+    data = get_fraud_by_employment_type(DB_PATH)
+    print(data)
+
+    plot_fraud_rate(data, OUTPUT_PATH)
